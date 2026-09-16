@@ -7,6 +7,7 @@ import 'sheets_service.dart';
 import 'schema_service.dart';
 import 'record_service.dart';
 import 'spreadsheet_storage.dart';
+import 'google_auth.dart';
 
 class AppService {
   AppService._();
@@ -26,6 +27,21 @@ class AppService {
   Future<List<Map<String, dynamic>>> loadSpreadsheets() async {
     return storage.getSpreadsheets();
   }
+  
+  /// Logs the user out.
+  ///
+  /// Clears the OAuth credentials and all locally cached app data.
+  Future<void> logout(context) async {
+    // Remove OAuth credentials/token.
+    await GoogleAuthService.instance.logout();
+
+    // Clear all locally stored app data.
+    await storage.clear();
+
+    debugPrint('User logged out and local data cleared.');
+    UIHelper.showSnackBar(context, "Successfully Logged Out");
+  }
+
 
   /// Creates a new spreadsheet and saves its ID locally.
   Future<String> createSpreadsheet() async {

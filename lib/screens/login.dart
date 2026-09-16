@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> checkLogin() async {
-    final user = await auth.silent_login();
+    final user = await auth.silentLogin();
 
     if (!mounted) return;
 

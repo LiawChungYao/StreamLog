@@ -4,19 +4,25 @@ class GoogleAuthService {
   GoogleAuthService._privateConstructor();
 
   static final GoogleAuthService instance =
-    GoogleAuthService._privateConstructor();
-
+      GoogleAuthService._privateConstructor();
 
   GoogleSignInAccount? _user;
 
-  GoogleSignInAccount? get user => _user!;
+  GoogleSignInAccount? get user => _user;
+
+  final GoogleSignIn googleSignIn = GoogleSignIn(
+    scopes: [
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/spreadsheets',
+    ],
+  );
 
   Future<GoogleSignInAccount> requireUser() async {
     if (_user != null) {
       return _user!;
     }
 
-    final user = await silent_login();
+    final user = await silentLogin();
 
     if (user == null) {
       throw Exception('Not authenticated');
@@ -30,27 +36,25 @@ class GoogleAuthService {
 
     return user.authentication;
   }
-  
-  final GoogleSignIn googleSignIn = GoogleSignIn(
-    scopes: [
-      'https://www.googleapis.com/auth/drive.file',
-      'https://www.googleapis.com/auth/spreadsheets',
-    ],
-  );
-
 
   Future<GoogleSignInAccount?> login() async {
-
     final user = await googleSignIn.signIn();
 
-    return user!;
+    _user = user;
+
+    return user;
   }
 
-  Future<GoogleSignInAccount?> silent_login() async {
-
+  Future<GoogleSignInAccount?> silentLogin() async {
     final user = await googleSignIn.signInSilently();
 
-    return user!;
+    _user = user;
+
+    return user;
   }
 
+  Future<void> logout() async {
+    await googleSignIn.signOut();
+    _user = null;
+  }
 }

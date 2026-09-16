@@ -190,4 +190,9 @@ class SpreadsheetStorage {
       'Removed spreadsheet $spreadsheetId from SharedPreferences',
     );
   }
+
+    Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+  }
 }

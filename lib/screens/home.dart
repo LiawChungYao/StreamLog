@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/app_service.dart';
 import '../screens/sheet_main.dart';
+import '../screens/login.dart';
 import '../util/ui_helper.dart';
 
 
@@ -52,7 +53,37 @@ class _HomeScreenState extends State<HomeScreen> {
               Column(
 
                 children: [
+                  
+                  // Log Out
+                  ElevatedButton(
+                    onPressed: () async {
+                  
+                      setState(() {
+                        isLoading = true;
+                      });
 
+                      await AppService.instance.logout(context);
+                      
+                      if (!mounted) return;
+
+                      setState(() {
+                        isLoading = false;
+                      });
+
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) => const LoginScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    },
+
+                  child: 
+                    const Text("Log Out")
+                ),
+
+
+                  // Sync files
                   ElevatedButton(
                     onPressed: () async {
                   
@@ -77,6 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Text("Sync")
                 ),
 
+                  // Add New Spreadsheet
                   ElevatedButton(
                     onPressed: () async {
                       
@@ -122,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       setState(() {
                         isLoading = true;
                       });
-                      final response = AppService.instance.addSpreadsheet(AppService.instance.extractSpreadsheetId(input), context);
+                      await AppService.instance.addSpreadsheet(AppService.instance.extractSpreadsheetId(input), context);
                       final loaded = await AppService.instance.loadSpreadsheets();
                       if (!mounted) return;
                       
