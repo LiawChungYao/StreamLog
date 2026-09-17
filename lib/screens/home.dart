@@ -54,119 +54,132 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 children: [
                   
-                  // Log Out
-                  ElevatedButton(
-                    onPressed: () async {
-                  
-                      setState(() {
-                        isLoading = true;
-                      });
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
 
-                      await AppService.instance.logout(context);
-                      
-                      if (!mounted) return;
+                      // Sync
+                      IconButton(
+                        tooltip: 'Sync',
+                        icon: const Icon(Icons.sync),
+                        onPressed: () async {
+                          setState(() {
+                            isLoading = true;
+                          });
 
-                      setState(() {
-                        isLoading = false;
-                      });
+                          await AppService.instance.refreshSpreadsheets();
+                          final loaded = await AppService.instance.loadSpreadsheets();
 
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (_) => const LoginScreen(),
-                        ),
-                        (route) => false,
-                      );
-                    },
+                          if (!mounted) return;
 
-                  child: 
-                    const Text("Log Out")
-                ),
+                          setState(() {
+                            spreadsheets = loaded;
+                            isLoading = false;
+                          });
 
+                          debugPrint(spreadsheets.length.toString());
+                        },
+                      ),
 
-                  // Sync files
-                  ElevatedButton(
-                    onPressed: () async {
-                  
-                      setState(() {
-                        isLoading = true;
-                      });
+                      // Create New Spreadsheet
+                      IconButton(
+                        tooltip: 'Create Spreadsheet',
+                        icon: const Icon(Icons.add_box),
+                        onPressed: () async {
+                          setState(() {
+                            isLoading = true;
+                          });
 
-                      await AppService.instance.refreshSpreadsheets();
-                      final loaded = await AppService.instance.loadSpreadsheets();
-                      
-                      if (!mounted) return;
+                          await AppService.instance.createSpreadsheet();
 
-                      setState(() {
-                        spreadsheets = loaded;
-                        isLoading = false;
-                      });
+                          final loaded =
+                              await AppService.instance.loadSpreadsheets();
 
-                      debugPrint(spreadsheets.length.toString());
-                    },
+                          if (!mounted) return;
 
-                  child: 
-                    const Text("Sync")
-                ),
+                          UIHelper.showSnackBar(
+                            context,
+                            "Create New Spreadsheet",
+                          );
 
-                  // Add New Spreadsheet
-                  ElevatedButton(
-                    onPressed: () async {
-                      
-                      setState(() {
-                        isLoading = true;
-                      });
+                          setState(() {
+                            spreadsheets = loaded;
+                            isLoading = false;
+                          });
+                        },
+                      ),
 
-                      await AppService.instance.createSpreadsheet();
-                      
-                      final loaded = await AppService.instance.loadSpreadsheets();
+                      // Import Spreadsheet
+                      IconButton(
+                        tooltip: 'Import Spreadsheet',
+                        icon: const Icon(Icons.file_download),
+                        onPressed: () async {
+                          final input = await UIHelper.showTextInput(
+                            context,
+                            title: "Add Spreadsheet",
+                            labelText: "Spreadsheet link",
+                            hintText: "Paste Google Sheets link or ID",
+                          );
 
-                      if (!mounted) return;
+                          debugPrint(input);
 
-                      UIHelper.showSnackBar(context, "Create New Spreadsheet");
+                          if (input == null) return;
 
-                      setState(() {
-                        spreadsheets = loaded;
-                        isLoading = false;
-                      });
-                    },
+                          setState(() {
+                            isLoading = true;
+                          });
 
-                    child: const Text(
-                      "Create Spreadsheet",
-                    ),
-                  ),
+                          await AppService.instance.addSpreadsheet(
+                            AppService.instance.extractSpreadsheetId(input),
+                            context,
+                          );
 
-                  // Import spreadsheet
-                  ElevatedButton(
-                    onPressed: () async {
-                      
+                          final loaded =
+                              await AppService.instance.loadSpreadsheets();
 
-                      final input = await UIHelper.showTextInput(
-                        context,
-                        title: "Add Spreadsheet",
-                        labelText: "Spreadsheet link",
-                        hintText: "Paste Google Sheets link or ID",
-                      );
+                          if (!mounted) return;
 
-                      debugPrint(input);
+                          setState(() {
+                            isLoading = false;
+                            spreadsheets = loaded;
+                          });
+                        },
+                      ),
 
-                      if (input == null) return;
-                      
-                      setState(() {
-                        isLoading = true;
-                      });
-                      await AppService.instance.addSpreadsheet(AppService.instance.extractSpreadsheetId(input), context);
-                      final loaded = await AppService.instance.loadSpreadsheets();
-                      if (!mounted) return;
-                      
-                      setState(() {
-                        isLoading = false;
-                        spreadsheets = loaded;
-                      });
-                    },
+                      // Log Out
+                      IconButton(
+                        tooltip: 'Log Out',
+                        icon: const Icon(Icons.logout),
+                        onPressed: () async {
+                          final response = await UIHelper.showConfirmation(
+                            context,
+                            title: "Log Out",
+                            message: "Are you sure you want to logout?",
+                          );
 
-                    child: const Text(
-                      "Import Spreadsheet",
-                    ),
+                          if (!response) return;
+
+                          setState(() {
+                            isLoading = true;
+                          });
+
+                          await AppService.instance.logout(context);
+
+                          if (!mounted) return;
+
+                          setState(() {
+                            isLoading = false;
+                          });
+
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                      ),
+                    ],
                   ),
 
                   // List available spreadsheets to use
