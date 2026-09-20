@@ -4,6 +4,7 @@ import '../models/log_column.dart';
 import '../models/log_schema.dart';
 import '../services/record_service.dart';
 import '../util/ui_helper.dart';
+import '../util/utils.dart';
 
 class AddLogPage extends StatefulWidget {
   final LogSchema schema;
@@ -35,6 +36,8 @@ class _AddLogPageState extends State<AddLogPage> {
 
   Map<String, dynamic> values = {};
 
+  late Map<String, dynamic> originalValues;
+
   late TextEditingController textController;
 
   // ---------------------------------------------------------------------------
@@ -48,6 +51,9 @@ class _AddLogPageState extends State<AddLogPage> {
     textController = TextEditingController();
 
     _initializeValues();
+
+    // Keep a snapshot of the values when editing started.
+    originalValues = ValueUtils.deepCopyMap(values);
 
     _loadCurrentValue();
   }
@@ -116,6 +122,30 @@ class _AddLogPageState extends State<AddLogPage> {
   }
 
   // ---------------------------------------------------------------------------
+  // Change detection
+  // ---------------------------------------------------------------------------
+
+  bool get _hasChanges {
+    if (!isEditing) {
+      return false;
+    }
+
+    return !ValueUtils.equals(values, originalValues);
+  }
+
+  Future<bool> _confirmExit() async {
+    if (!_hasChanges) {
+      return true;
+    }
+
+    return await UIHelper.showConfirmation(
+      context,
+      title: 'Discard changes?',
+      message: 'You have unsaved changes. Are you sure you want to leave?',
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Current column
   // ---------------------------------------------------------------------------
 
@@ -124,8 +154,7 @@ class _AddLogPageState extends State<AddLogPage> {
   }
 
   bool get isLastColumn {
-    return currentIndex ==
-        widget.schema.columns.length - 1;
+    return currentIndex == widget.schema.columns.length - 1;
   }
 
   // ---------------------------------------------------------------------------
@@ -170,9 +199,16 @@ class _AddLogPageState extends State<AddLogPage> {
     });
   }
 
-  void previous() {
+  Future<void> previous() async {
     if (currentIndex == 0) {
-      Navigator.pop(context);
+      saveCurrentValue();
+
+      final shouldPop = await _confirmExit();
+
+      if (shouldPop && mounted) {
+        Navigator.pop(context);
+      }
+
       return;
     }
 
@@ -195,8 +231,7 @@ class _AddLogPageState extends State<AddLogPage> {
     if (_usesTextController(column)) {
       textController.text = value?.toString() ?? '';
 
-      textController.selection =
-          TextSelection.fromPosition(
+      textController.selection = TextSelection.fromPosition(
         TextPosition(
           offset: textController.text.length,
         ),
@@ -212,8 +247,7 @@ class _AddLogPageState extends State<AddLogPage> {
     }
 
     if (column.type == ColumnType.metadata) {
-      return _metadataMode(column) ==
-          MetadataMode.freeText;
+      return _metadataMode(column) == MetadataMode.freeText;
     }
 
     return false;
@@ -245,6 +279,7 @@ class _AddLogPageState extends State<AddLogPage> {
           context,
           '${column.name} is required.',
         );
+
         return false;
       }
 
@@ -253,6 +288,7 @@ class _AddLogPageState extends State<AddLogPage> {
           context,
           '${column.name} is required.',
         );
+
         return false;
       }
 
@@ -261,6 +297,7 @@ class _AddLogPageState extends State<AddLogPage> {
           context,
           '${column.name} is required.',
         );
+
         return false;
       }
     }
@@ -273,8 +310,7 @@ class _AddLogPageState extends State<AddLogPage> {
       String? error;
 
       if (column.config is MetadataConfig) {
-        final config =
-            column.config as MetadataConfig;
+        final config = column.config as MetadataConfig;
 
         // ------------------------------------------------------
         // Single select
@@ -284,8 +320,7 @@ class _AddLogPageState extends State<AddLogPage> {
           if (!config.options.contains(
             value.toString(),
           )) {
-            error =
-                'Please select one of the available options.';
+            error = 'Please select one of the available options.';
           }
         }
 
@@ -296,15 +331,13 @@ class _AddLogPageState extends State<AddLogPage> {
         if (config.mode == MetadataMode.multiSelect) {
           if (value is List) {
             final invalidValues = value.where(
-              (item) =>
-                  !config.options.contains(
+              (item) => !config.options.contains(
                 item.toString(),
               ),
             );
 
             if (invalidValues.isNotEmpty) {
-              error =
-                  'One or more selected values are invalid.';
+              error = 'One or more selected values are invalid.';
             }
           }
         }
@@ -315,6 +348,7 @@ class _AddLogPageState extends State<AddLogPage> {
           context,
           error,
         );
+
         return false;
       }
     }
@@ -332,46 +366,34 @@ class _AddLogPageState extends State<AddLogPage> {
       builder: (_) {
         return AlertDialog(
           title: Text(
-            isEditing
-                ? 'Review Changes'
-                : 'Review Log',
+            isEditing ? 'Review Changes' : 'Review Log',
           ),
-
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-
-              children:
-                  widget.schema.columns.map(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: widget.schema.columns.map(
                 (column) {
-                  final value =
-                      values[column.id];
+                  final value = values[column.id];
 
                   String displayValue;
 
                   if (value is List) {
                     displayValue = value
                         .map(
-                          (item) =>
-                              item.toString(),
+                          (item) => item.toString(),
                         )
                         .join(', ');
                   } else if (value is DateTime) {
-                    displayValue =
-                        value.toString();
+                    displayValue = value.toString();
                   } else {
-                    displayValue =
-                        value?.toString() ?? '';
+                    displayValue = value?.toString() ?? '';
                   }
 
                   return Padding(
-                    padding:
-                        const EdgeInsets.only(
+                    padding: const EdgeInsets.only(
                       bottom: 12,
                     ),
-
                     child: Text(
                       '${column.name}: $displayValue',
                     ),
@@ -380,7 +402,6 @@ class _AddLogPageState extends State<AddLogPage> {
               ).toList(),
             ),
           ),
-
           actions: [
             TextButton(
               onPressed: () {
@@ -388,17 +409,13 @@ class _AddLogPageState extends State<AddLogPage> {
               },
               child: const Text('Back'),
             ),
-
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
                 saveLog();
               },
-
               child: Text(
-                isEditing
-                    ? 'Save Changes'
-                    : 'Save',
+                isEditing ? 'Save Changes' : 'Save',
               ),
             ),
           ],
@@ -442,9 +459,7 @@ class _AddLogPageState extends State<AddLogPage> {
 
       UIHelper.showSnackBar(
         context,
-        isEditing
-            ? 'Changes saved'
-            : 'Log saved',
+        isEditing ? 'Changes saved' : 'Log saved',
       );
 
       // ----------------------------------------------------------
@@ -472,26 +487,42 @@ class _AddLogPageState extends State<AddLogPage> {
   Widget build(BuildContext context) {
     final column = currentColumn;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          isEditing
-              ? 'Edit Log • ${currentIndex + 1} / '
-                  '${widget.schema.columns.length}'
-              : '${currentIndex + 1} / '
-                  '${widget.schema.columns.length}',
+    return PopScope(
+      canPop: !_hasChanges,
+      onPopInvoked: (didPop) async {
+        if (didPop) {
+          return;
+        }
+
+        // Save any text currently entered in the visible field
+        // before checking whether the record has changed.
+        saveCurrentValue();
+
+        final shouldPop = await _confirmExit();
+
+        if (shouldPop && mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            isEditing
+                ? 'Edit Log • ${currentIndex + 1} / '
+                    '${widget.schema.columns.length}'
+                : '${currentIndex + 1} / '
+                    '${widget.schema.columns.length}',
+          ),
         ),
-      ),
-
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: _buildColumnInput(column),
-            ),
-
-            _buildNavigation(),
-          ],
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: _buildColumnInput(column),
+              ),
+              _buildNavigation(),
+            ],
+          ),
         ),
       ),
     );
@@ -531,39 +562,27 @@ class _AddLogPageState extends State<AddLogPage> {
   Widget _buildNameInput(LogColumn column) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment:
-          CrossAxisAlignment.stretch,
-
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 80),
-
         Text(
           column.name,
-          style: Theme.of(context)
-              .textTheme
-              .headlineMedium,
+          style: Theme.of(context).textTheme.headlineMedium,
           textAlign: TextAlign.center,
         ),
-
         const SizedBox(height: 40),
-
         TextField(
           controller: textController,
           autofocus: true,
           textAlign: TextAlign.center,
-
           style: const TextStyle(
             fontSize: 28,
           ),
-
           decoration: InputDecoration(
-            hintText:
-                'Enter ${column.name}',
-            border:
-                const OutlineInputBorder(),
+            hintText: 'Enter ${column.name}',
+            border: const OutlineInputBorder(),
           ),
         ),
-
         const SizedBox(height: 80),
       ],
     );
@@ -576,43 +595,30 @@ class _AddLogPageState extends State<AddLogPage> {
   Widget _buildTimestampInput(
     LogColumn column,
   ) {
-    final currentValue =
-        values[column.id];
+    final currentValue = values[column.id];
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment:
-          CrossAxisAlignment.stretch,
-
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 60),
-
         Text(
           column.name,
-          style: Theme.of(context)
-              .textTheme
-              .headlineMedium,
+          style: Theme.of(context).textTheme.headlineMedium,
           textAlign: TextAlign.center,
         ),
-
         const SizedBox(height: 40),
-
         ElevatedButton(
           onPressed: () {
             setState(() {
-              values[column.id] =
-                  DateTime.now();
+              values[column.id] = DateTime.now();
             });
           },
-
-          style:
-              ElevatedButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(
               vertical: 24,
             ),
           ),
-
           child: const Text(
             'Now',
             style: TextStyle(
@@ -620,43 +626,31 @@ class _AddLogPageState extends State<AddLogPage> {
             ),
           ),
         ),
-
         const SizedBox(height: 16),
-
         OutlinedButton(
           onPressed: () async {
-            final date =
-                await showDatePicker(
+            final date = await showDatePicker(
               context: context,
-              firstDate:
-                  DateTime(2000),
-              lastDate:
-                  DateTime(2100),
-
-              initialDate:
-                  DateTime.now(),
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+              initialDate: DateTime.now(),
             );
 
-            if (date == null ||
-                !mounted) {
+            if (date == null || !mounted) {
               return;
             }
 
-            final time =
-                await showTimePicker(
+            final time = await showTimePicker(
               context: context,
-              initialTime:
-                  TimeOfDay.now(),
+              initialTime: TimeOfDay.now(),
             );
 
-            if (time == null ||
-                !mounted) {
+            if (time == null || !mounted) {
               return;
             }
 
             setState(() {
-              values[column.id] =
-                  DateTime(
+              values[column.id] = DateTime(
                 date.year,
                 date.month,
                 date.day,
@@ -665,15 +659,11 @@ class _AddLogPageState extends State<AddLogPage> {
               );
             });
           },
-
-          style:
-              OutlinedButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(
               vertical: 24,
             ),
           ),
-
           child: const Text(
             'Choose Date & Time',
             style: TextStyle(
@@ -681,20 +671,16 @@ class _AddLogPageState extends State<AddLogPage> {
             ),
           ),
         ),
-
         if (currentValue != null) ...[
           const SizedBox(height: 24),
-
           Text(
             currentValue.toString(),
             textAlign: TextAlign.center,
-
             style: const TextStyle(
               fontSize: 18,
             ),
           ),
         ],
-
         const SizedBox(height: 60),
       ],
     );
@@ -707,66 +693,41 @@ class _AddLogPageState extends State<AddLogPage> {
   Widget _buildNumberInput(
     LogColumn column,
   ) {
-    final value =
-        values[column.id]?.toString() ?? '';
+    final value = values[column.id]?.toString() ?? '';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment:
-          CrossAxisAlignment.stretch,
-
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 20),
-
         Text(
           column.name,
-          style: Theme.of(context)
-              .textTheme
-              .headlineMedium,
+          style: Theme.of(context).textTheme.headlineMedium,
           textAlign: TextAlign.center,
         ),
-
         const SizedBox(height: 12),
-
         Container(
           height: 60,
           width: double.infinity,
-
-          alignment:
-              Alignment.centerRight,
-
-          padding:
-              const EdgeInsets.symmetric(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.symmetric(
             horizontal: 16,
           ),
-
-          decoration:
-              BoxDecoration(
+          decoration: BoxDecoration(
             border: Border.all(
-              color: Theme.of(context)
-                  .dividerColor,
+              color: Theme.of(context).dividerColor,
             ),
-
-            borderRadius:
-                BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8),
           ),
-
           child: Text(
-            value.isEmpty
-                ? '0'
-                : value,
-
-            style:
-                const TextStyle(
+            value.isEmpty ? '0' : value,
+            style: const TextStyle(
               fontSize: 32,
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),
-
         const SizedBox(height: 12),
-
         _buildNumberKeyboard(column),
       ],
     );
@@ -792,64 +753,48 @@ class _AddLogPageState extends State<AddLogPage> {
 
     return GridView.builder(
       shrinkWrap: true,
-      physics:
-          const NeverScrollableScrollPhysics(),
-
-      gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         childAspectRatio: 3.0,
         crossAxisSpacing: 8,
         mainAxisSpacing: 8,
       ),
-
       itemCount: buttons.length,
-
       itemBuilder: (_, index) {
-        final button =
-            buttons[index];
+        final button = buttons[index];
 
         return ElevatedButton(
-          style:
-              ElevatedButton.styleFrom(
+          style: ElevatedButton.styleFrom(
             padding: EdgeInsets.zero,
             minimumSize: Size.zero,
           ),
-
           onPressed: () {
             setState(() {
               String current =
-                  values[column.id]
-                          ?.toString() ??
-                      '';
+                  values[column.id]?.toString() ?? '';
 
               if (button == '⌫') {
                 if (current.isNotEmpty) {
-                  current =
-                      current.substring(
+                  current = current.substring(
                     0,
                     current.length - 1,
                   );
                 }
               } else if (button == '.') {
-                if (!current
-                    .contains('.')) {
+                if (!current.contains('.')) {
                   current += '.';
                 }
               } else {
                 current += button;
               }
 
-              values[column.id] =
-                  current;
+              values[column.id] = current;
             });
           },
-
           child: Text(
             button,
-
-            style:
-                const TextStyle(
+            style: const TextStyle(
               fontSize: 20,
             ),
           ),
@@ -865,8 +810,7 @@ class _AddLogPageState extends State<AddLogPage> {
   Widget _buildMetadataInput(
     LogColumn column,
   ) {
-    final mode =
-        _metadataMode(column);
+    final mode = _metadataMode(column);
 
     switch (mode) {
       case MetadataMode.freeText:
@@ -902,39 +846,27 @@ class _AddLogPageState extends State<AddLogPage> {
   ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment:
-          CrossAxisAlignment.stretch,
-
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 80),
-
         Text(
           column.name,
-          style: Theme.of(context)
-              .textTheme
-              .headlineMedium,
+          style: Theme.of(context).textTheme.headlineMedium,
           textAlign: TextAlign.center,
         ),
-
         const SizedBox(height: 40),
-
         TextField(
           controller: textController,
           autofocus: true,
           textAlign: TextAlign.center,
-
           style: const TextStyle(
             fontSize: 24,
           ),
-
           decoration: InputDecoration(
-            hintText:
-                'Enter ${column.name}',
-            border:
-                const OutlineInputBorder(),
+            hintText: 'Enter ${column.name}',
+            border: const OutlineInputBorder(),
           ),
         ),
-
         const SizedBox(height: 80),
       ],
     );
@@ -947,84 +879,58 @@ class _AddLogPageState extends State<AddLogPage> {
   Widget _buildSingleSelect(
     LogColumn column,
   ) {
-    final selected =
-        values[column.id];
+    final selected = values[column.id];
 
-    final options =
-        _metadataOptions(column);
+    final options = _metadataOptions(column);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment:
-          CrossAxisAlignment.stretch,
-
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 40),
-
         Text(
           column.name,
-          style: Theme.of(context)
-              .textTheme
-              .headlineMedium,
+          style: Theme.of(context).textTheme.headlineMedium,
           textAlign: TextAlign.center,
         ),
-
         const SizedBox(height: 30),
-
         ...options.map(
           (option) {
-            final isSelected =
-                selected == option;
+            final isSelected = selected == option;
 
             return Padding(
-              padding:
-                  const EdgeInsets.only(
+              padding: const EdgeInsets.only(
                 bottom: 12,
               ),
-
               child: SizedBox(
                 width: double.infinity,
-
                 child: ElevatedButton(
                   onPressed: () {
                     setState(() {
-                      values[column.id] =
-                          option;
+                      values[column.id] = option;
                     });
                   },
-
-                  style:
-                      ElevatedButton.styleFrom(
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
                       vertical: 20,
                     ),
                   ),
-
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           option,
-
-                          textAlign:
-                              TextAlign.center,
-
-                          style:
-                              const TextStyle(
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
                             fontSize: 20,
                           ),
                         ),
                       ),
-
                       if (isSelected)
                         const Padding(
-                          padding:
-                              EdgeInsets.only(
+                          padding: EdgeInsets.only(
                             right: 12,
                           ),
-
                           child: Icon(
                             Icons.check,
                           ),
@@ -1036,7 +942,6 @@ class _AddLogPageState extends State<AddLogPage> {
             );
           },
         ),
-
         const SizedBox(height: 40),
       ],
     );
@@ -1049,76 +954,54 @@ class _AddLogPageState extends State<AddLogPage> {
   Widget _buildMultiSelect(
     LogColumn column,
   ) {
-    final selected =
-        List<String>.from(
-      values[column.id] ??
-          <String>[],
+    final selected = List<String>.from(
+      values[column.id] ?? <String>[],
     );
 
-    final options =
-        _metadataOptions(column);
+    final options = _metadataOptions(column);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment:
-          CrossAxisAlignment.stretch,
-
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 20),
-
         Text(
           column.name,
-          style: Theme.of(context)
-              .textTheme
-              .headlineMedium,
+          style: Theme.of(context).textTheme.headlineMedium,
           textAlign: TextAlign.center,
         ),
-
         const SizedBox(height: 30),
-
         ...options.map(
           (option) {
-            final isSelected =
-                selected.contains(
+            final isSelected = selected.contains(
               option,
             );
 
             return CheckboxListTile(
-              contentPadding:
-                  EdgeInsets.zero,
-
+              contentPadding: EdgeInsets.zero,
               title: Text(
                 option,
-
-                style:
-                    const TextStyle(
+                style: const TextStyle(
                   fontSize: 20,
                 ),
               ),
-
               value: isSelected,
-
               onChanged: (checked) {
                 setState(() {
                   if (checked == true) {
-                    if (!selected
-                        .contains(option)) {
+                    if (!selected.contains(option)) {
                       selected.add(option);
                     }
                   } else {
-                    selected.remove(
-                      option,
-                    );
+                    selected.remove(option);
                   }
 
-                  values[column.id] =
-                      selected;
+                  values[column.id] = selected;
                 });
               },
             );
           },
         ),
-
         const SizedBox(height: 30),
       ],
     );
@@ -1130,31 +1013,23 @@ class _AddLogPageState extends State<AddLogPage> {
 
   Widget _buildNavigation() {
     return Padding(
-      padding:
-          const EdgeInsets.all(16),
-
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           if (currentIndex > 0)
             Expanded(
               child: OutlinedButton(
                 onPressed: previous,
-                child:
-                    const Text('Back'),
+                child: const Text('Back'),
               ),
             ),
-
           if (currentIndex > 0)
             const SizedBox(width: 12),
-
           Expanded(
             child: ElevatedButton(
               onPressed: next,
-
               child: Text(
-                isLastColumn
-                    ? 'Review'
-                    : 'Next',
+                isLastColumn ? 'Review' : 'Next',
               ),
             ),
           ),

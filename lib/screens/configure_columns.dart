@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter/foundation.dart';
 import '../models/log_column.dart';
 import '../util/ui_helper.dart';
 
@@ -12,17 +12,44 @@ class ConfigureColumnsPage extends StatefulWidget {
   });
 
   @override
-  State<ConfigureColumnsPage> createState() => _ConfigureColumnsPageState();
+  State<ConfigureColumnsPage> createState() =>
+      _ConfigureColumnsPageState();
 }
 
 class _ConfigureColumnsPageState extends State<ConfigureColumnsPage> {
   late List<LogColumn> columns;
+  late List<LogColumn> originalColumns;
 
   @override
   void initState() {
     super.initState();
 
     columns = List.from(widget.initialColumns);
+    originalColumns = List.from(widget.initialColumns);
+  }
+
+  // ------------------------------------------------------------
+  // Change detection
+  // ------------------------------------------------------------
+
+  bool get _hasChanges {
+    return !listEquals(columns, originalColumns);
+  }
+  // ------------------------------------------------------------
+  // Exit confirmation
+  // ------------------------------------------------------------
+
+  Future<bool> _confirmExit() async {
+    if (!_hasChanges) {
+      return true;
+    }
+
+    return await UIHelper.showConfirmation(
+      context,
+      title: 'Discard changes?',
+      message:
+          'You have unsaved changes. Are you sure you want to leave?',
+    );
   }
 
   // ------------------------------------------------------------
@@ -52,17 +79,23 @@ class _ConfigureColumnsPageState extends State<ConfigureColumnsPage> {
     final confirmed = await UIHelper.showConfirmation(
       context,
       title: 'Remove column?',
-      message: 'Are you sure you want to remove "${column.name}"?',
+      message:
+          'Are you sure you want to remove "${column.name}"?',
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setState(() {
       columns.removeAt(index);
     });
   }
 
-  void _updateColumn(int index, LogColumn column) {
+  void _updateColumn(
+    int index,
+    LogColumn column,
+  ) {
     setState(() {
       columns[index] = column;
     });
@@ -78,56 +111,96 @@ class _ConfigureColumnsPageState extends State<ConfigureColumnsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Configure Schema'),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+    return PopScope(
+      canPop: !_hasChanges,
+      onPopInvoked: (didPop) async {
+        if (didPop) {
+          return;
+        }
 
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addColumn,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Column'),
-      ),
+        final shouldPop = await _confirmExit();
 
-      body: columns.isEmpty
-          ? _buildEmptyState()
-          : ReorderableListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-              itemCount: columns.length,
+        if (shouldPop && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
 
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (oldIndex < newIndex) {
-                    newIndex -= 1;
-                  }
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Configure Schema'),
 
-                  final column = columns.removeAt(oldIndex);
-                  columns.insert(newIndex, column);
-                });
-              },
-
-              itemBuilder: (context, index) {
-                return _ColumnCard(
-                  key: ValueKey(columns[index].id),
-                  index: index,
-                  column: columns[index],
-
-                  onChanged: (column) {
-                    _updateColumn(index, column);
-                  },
-
-                  onDelete: () {
-                    _removeColumn(index);
-                  },
-                );
-              },
+          actions: [
+            TextButton(
+              onPressed: _save,
+              child: const Text('Save'),
             ),
+          ],
+        ),
+
+        floatingActionButton:
+            FloatingActionButton.extended(
+          onPressed: _addColumn,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Column'),
+        ),
+
+        body: columns.isEmpty
+            ? _buildEmptyState()
+            : ReorderableListView.builder(
+                padding: const EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  100,
+                ),
+
+                itemCount: columns.length,
+
+                onReorder: (
+                  oldIndex,
+                  newIndex,
+                ) {
+                  setState(() {
+                    if (oldIndex < newIndex) {
+                      newIndex -= 1;
+                    }
+
+                    final column =
+                        columns.removeAt(oldIndex);
+
+                    columns.insert(
+                      newIndex,
+                      column,
+                    );
+                  });
+                },
+
+                itemBuilder: (
+                  context,
+                  index,
+                ) {
+                  return _ColumnCard(
+                    key: ValueKey(
+                      columns[index].id,
+                    ),
+
+                    index: index,
+                    column: columns[index],
+
+                    onChanged: (column) {
+                      _updateColumn(
+                        index,
+                        column,
+                      );
+                    },
+
+                    onDelete: () {
+                      _removeColumn(index);
+                    },
+                  );
+                },
+              ),
+      ),
     );
   }
 
@@ -222,13 +295,16 @@ class _ColumnCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(
+        bottom: 12,
+      ),
 
       child: Padding(
         padding: const EdgeInsets.all(16),
 
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
 
           children: [
             // ----------------------------------------------------
@@ -260,7 +336,9 @@ class _ColumnCard extends StatelessWidget {
 
                 IconButton(
                   tooltip: 'Remove column',
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                  ),
                   onPressed: onDelete,
                 ),
               ],
@@ -275,7 +353,8 @@ class _ColumnCard extends StatelessWidget {
             TextFormField(
               initialValue: column.name,
 
-              decoration: const InputDecoration(
+              decoration:
+                  const InputDecoration(
                 labelText: 'Column name',
                 border: OutlineInputBorder(),
               ),
@@ -298,26 +377,35 @@ class _ColumnCard extends StatelessWidget {
             DropdownButtonFormField<ColumnType>(
               value: column.type,
 
-              decoration: const InputDecoration(
+              decoration:
+                  const InputDecoration(
                 labelText: 'Column type',
                 border: OutlineInputBorder(),
               ),
 
-              items: ColumnType.values.map((type) {
+              items: ColumnType.values
+                  .map((type) {
                 return DropdownMenuItem(
                   value: type,
-                  child: Text(type.displayName),
+                  child: Text(
+                    type.displayName,
+                  ),
                 );
               }).toList(),
 
               onChanged: (type) {
-                if (type == null) return;
+                if (type == null) {
+                  return;
+                }
 
                 ColumnConfig? config;
 
-                if (type == ColumnType.metadata) {
-                  config = const MetadataConfig(
-                    mode: MetadataMode.freeText,
+                if (type ==
+                    ColumnType.metadata) {
+                  config =
+                      const MetadataConfig(
+                    mode:
+                        MetadataMode.freeText,
                     options: [],
                   );
                 }
@@ -338,11 +426,14 @@ class _ColumnCard extends StatelessWidget {
             // ----------------------------------------------------
 
             SwitchListTile(
-              contentPadding: EdgeInsets.zero,
+              contentPadding:
+                  EdgeInsets.zero,
 
-              title: const Text('Required'),
+              title:
+                  const Text('Required'),
 
-              subtitle: const Text(
+              subtitle:
+                  const Text(
                 'Users must provide a value for this column',
               ),
 
@@ -377,6 +468,7 @@ class _ColumnCard extends StatelessWidget {
 
               _ConfigEditor(
                 config: column.config!,
+
                 onChanged: (config) {
                   onChanged(
                     _copyColumn(
@@ -420,29 +512,40 @@ class _ConfigEditor extends StatelessWidget {
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
 
       children: [
         ...List.generate(
           properties.length,
           (index) {
-            final property = properties[index];
+            final property =
+                properties[index];
 
             return Padding(
               padding: EdgeInsets.only(
-                bottom: index == properties.length - 1 ? 0 : 16,
+                bottom:
+                    index ==
+                            properties.length -
+                                1
+                        ? 0
+                        : 16,
               ),
 
-              child: _ConfigPropertyEditor(
+              child:
+                  _ConfigPropertyEditor(
                 property: property,
 
                 onChanged: (value) {
-                  final updatedConfig = config.updateProperty(
+                  final updatedConfig =
+                      config.updateProperty(
                     property.key,
                     value,
                   );
 
-                  onChanged(updatedConfig);
+                  onChanged(
+                    updatedConfig,
+                  );
                 },
               ),
             );
@@ -457,7 +560,8 @@ class _ConfigEditor extends StatelessWidget {
 // Generic Config Property Editor
 // ============================================================================
 
-class _ConfigPropertyEditor extends StatelessWidget {
+class _ConfigPropertyEditor
+    extends StatelessWidget {
   final ConfigProperty property;
   final ValueChanged<dynamic> onChanged;
 
@@ -495,11 +599,13 @@ class _ConfigPropertyEditor extends StatelessWidget {
 
   Widget _buildTextField() {
     return TextFormField(
-      initialValue: property.value?.toString() ?? '',
+      initialValue:
+          property.value?.toString() ?? '',
 
       decoration: InputDecoration(
         labelText: property.label,
-        border: const OutlineInputBorder(),
+        border:
+            const OutlineInputBorder(),
       ),
 
       onChanged: onChanged,
@@ -512,15 +618,18 @@ class _ConfigPropertyEditor extends StatelessWidget {
 
   Widget _buildNumberField() {
     return TextFormField(
-      initialValue: property.value?.toString() ?? '',
+      initialValue:
+          property.value?.toString() ?? '',
 
-      keyboardType: const TextInputType.numberWithOptions(
+      keyboardType:
+          const TextInputType.numberWithOptions(
         decimal: true,
       ),
 
       decoration: InputDecoration(
         labelText: property.label,
-        border: const OutlineInputBorder(),
+        border:
+            const OutlineInputBorder(),
       ),
 
       onChanged: (value) {
@@ -550,13 +659,16 @@ class _ConfigPropertyEditor extends StatelessWidget {
 
       decoration: InputDecoration(
         labelText: property.label,
-        border: const OutlineInputBorder(),
+        border:
+            const OutlineInputBorder(),
       ),
 
       items: options.map((option) {
         return DropdownMenuItem<dynamic>(
           value: option,
-          child: Text(_displayValue(option)),
+          child: Text(
+            _displayValue(option),
+          ),
         );
       }).toList(),
 
@@ -592,7 +704,8 @@ class _ConfigPropertyEditor extends StatelessWidget {
     );
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
 
       children: [
         Text(
@@ -608,31 +721,41 @@ class _ConfigPropertyEditor extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
 
-          children: property.options.map((option) {
-            final isSelected = selected.contains(option);
+          children:
+              property.options.map(
+            (option) {
+              final isSelected =
+                  selected.contains(
+                option,
+              );
 
-            return FilterChip(
-              label: Text(
-                _displayValue(option),
-              ),
+              return FilterChip(
+                label: Text(
+                  _displayValue(option),
+                ),
 
-              selected: isSelected,
+                selected: isSelected,
 
-              onSelected: (value) {
-                final updated = List<dynamic>.from(selected);
+                onSelected: (value) {
+                  final updated =
+                      List<dynamic>.from(
+                    selected,
+                  );
 
-                if (value) {
-                  if (!updated.contains(option)) {
-                    updated.add(option);
+                  if (value) {
+                    if (!updated
+                        .contains(option)) {
+                      updated.add(option);
+                    }
+                  } else {
+                    updated.remove(option);
                   }
-                } else {
-                  updated.remove(option);
-                }
 
-                onChanged(updated);
-              },
-            );
-          }).toList(),
+                  onChanged(updated);
+                },
+              );
+            },
+          ).toList(),
         ),
       ],
     );
@@ -674,7 +797,8 @@ class _ConfigPropertyEditor extends StatelessWidget {
 // List Property Editor
 // ============================================================================
 
-class _ListPropertyEditor extends StatefulWidget {
+class _ListPropertyEditor
+    extends StatefulWidget {
   final String label;
   final List<String> values;
   final ValueChanged<List<String>> onChanged;
@@ -686,17 +810,21 @@ class _ListPropertyEditor extends StatefulWidget {
   });
 
   @override
-  State<_ListPropertyEditor> createState() => _ListPropertyEditorState();
+  State<_ListPropertyEditor> createState() =>
+      _ListPropertyEditorState();
 }
 
-class _ListPropertyEditorState extends State<_ListPropertyEditor> {
+class _ListPropertyEditorState
+    extends State<_ListPropertyEditor> {
   late List<String> values;
 
   @override
   void initState() {
     super.initState();
 
-    values = List.from(widget.values);
+    values = List.from(
+      widget.values,
+    );
   }
 
   @override
@@ -705,8 +833,11 @@ class _ListPropertyEditorState extends State<_ListPropertyEditor> {
   ) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.values != widget.values) {
-      values = List.from(widget.values);
+    if (oldWidget.values !=
+        widget.values) {
+      values = List.from(
+        widget.values,
+      );
     }
   }
 
@@ -715,18 +846,24 @@ class _ListPropertyEditorState extends State<_ListPropertyEditor> {
   // ------------------------------------------------------------
 
   Future<void> _addItem() async {
-    final value = await UIHelper.showTextInput(
+    final value =
+        await UIHelper.showTextInput(
       context,
-      title: 'Add ${widget.label.toLowerCase().singularize()}',
+      title:
+          'Add option',
       labelText: widget.label,
       hintText: 'Enter a value',
     );
 
-    if (value == null) return;
+    if (value == null) {
+      return;
+    }
 
     final trimmedValue = value.trim();
 
-    if (trimmedValue.isEmpty) return;
+    if (trimmedValue.isEmpty) {
+      return;
+    }
 
     if (values.contains(trimmedValue)) {
       UIHelper.showSnackBar(
@@ -750,16 +887,22 @@ class _ListPropertyEditorState extends State<_ListPropertyEditor> {
   // Remove
   // ------------------------------------------------------------
 
-  Future<void> _removeItem(int index) async {
+  Future<void> _removeItem(
+    int index,
+  ) async {
     final value = values[index];
 
-    final confirmed = await UIHelper.showConfirmation(
+    final confirmed =
+        await UIHelper.showConfirmation(
       context,
       title: 'Remove item?',
-      message: 'Are you sure you want to remove "$value"?',
+      message:
+          'Are you sure you want to remove "$value"?',
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setState(() {
       values.removeAt(index);
@@ -777,7 +920,8 @@ class _ListPropertyEditorState extends State<_ListPropertyEditor> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
 
       children: [
         Row(
@@ -786,22 +930,28 @@ class _ListPropertyEditorState extends State<_ListPropertyEditor> {
               child: Text(
                 widget.label,
                 style: const TextStyle(
-                  fontWeight: FontWeight.w600,
+                  fontWeight:
+                      FontWeight.w600,
                 ),
               ),
             ),
 
             TextButton.icon(
               onPressed: _addItem,
-              icon: const Icon(Icons.add),
-              label: const Text('Add'),
+              icon:
+                  const Icon(Icons.add),
+              label:
+                  const Text('Add'),
             ),
           ],
         ),
 
         if (values.isEmpty)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
+            padding:
+                EdgeInsets.symmetric(
+              vertical: 8,
+            ),
 
             child: Text(
               'No items added.',
@@ -815,7 +965,8 @@ class _ListPropertyEditorState extends State<_ListPropertyEditor> {
           values.length,
           (index) {
             return ListTile(
-              contentPadding: EdgeInsets.zero,
+              contentPadding:
+                  EdgeInsets.zero,
 
               leading: CircleAvatar(
                 radius: 14,
@@ -829,7 +980,9 @@ class _ListPropertyEditorState extends State<_ListPropertyEditor> {
               ),
 
               trailing: IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(
+                  Icons.close,
+                ),
 
                 onPressed: () {
                   _removeItem(index);
@@ -840,19 +993,5 @@ class _ListPropertyEditorState extends State<_ListPropertyEditor> {
         ),
       ],
     );
-  }
-}
-
-// ============================================================================
-// Small String helper
-// ============================================================================
-
-extension _StringExtensions on String {
-  String singularize() {
-    if (endsWith('s') && length > 1) {
-      return substring(0, length - 1);
-    }
-
-    return this;
   }
 }

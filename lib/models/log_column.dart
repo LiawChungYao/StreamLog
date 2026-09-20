@@ -1,3 +1,5 @@
+import '../util/utils.dart';
+
 enum ColumnType {
   name,
   metadata,
@@ -58,6 +60,33 @@ class ConfigProperty {
     this.value,
     this.options = const [],
   });
+
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    if (other is! ConfigProperty) {
+      return false;
+    }
+
+    return key == other.key &&
+        type == other.type &&
+        label == other.label &&
+        ValueUtils.equals(value, other.value) &&
+        ValueUtils.equals(options, other.options);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        key,
+        type,
+        label,
+        value,
+        options,
+      );
 }
 
 abstract class ColumnConfig {
@@ -65,12 +94,28 @@ abstract class ColumnConfig {
 
   List<ConfigProperty> get properties;
 
-  ColumnConfig updateProperty(
-    String key,
-    dynamic value,
-  );
+  ColumnConfig updateProperty(String key,dynamic value,);
   String? validate(String value);
   Map<String, dynamic> toSchemaValues();
+    @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    if (other is! ColumnConfig) {
+      return false;
+    }
+
+    return runtimeType == other.runtimeType &&
+        ValueUtils.equals(properties, other.properties);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        runtimeType,
+        Object.hashAll(properties),
+      );
 }
 
 class MetadataConfig extends ColumnConfig {
@@ -178,4 +223,30 @@ class LogColumn {
       ...?config?.toSchemaValues(),
     };
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    if (other is! LogColumn) {
+      return false;
+    }
+
+    return id == other.id &&
+        name == other.name &&
+        type == other.type &&
+        required == other.required &&
+        config == other.config;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        name,
+        type,
+        required,
+        config,
+      );
 }
