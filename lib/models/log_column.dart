@@ -1,202 +1,5 @@
 import '../util/utils.dart';
-
-enum ColumnType {
-  name,
-  metadata,
-  timestamp,
-  number;
-
-  String get displayName {
-    switch (this) {
-      case ColumnType.name:
-        return 'Text';
-      case ColumnType.metadata:
-        return 'Metadata';
-      case ColumnType.timestamp:
-        return 'Timestamp';
-      case ColumnType.number:
-        return 'Number';
-    }
-  }
-}
-
-enum MetadataMode {
-  freeText,
-  singleSelect,
-  multiSelect;
-
-  String get displayName {
-    switch (this) {
-      case MetadataMode.freeText:
-        return 'Free text';
-      case MetadataMode.singleSelect:
-        return 'Single select';
-      case MetadataMode.multiSelect:
-        return 'Multi select';
-    }
-  }
-}
-
-enum ConfigPropertyType {
-  text,
-  number,
-  dropdown,
-  checkbox,
-  multiSelect,
-  list,
-}
-
-class ConfigProperty {
-  final String key;
-  final String label;
-  final ConfigPropertyType type;
-  final dynamic value;
-  final List<dynamic> options;
-
-  const ConfigProperty({
-    required this.key,
-    required this.label,
-    required this.type,
-    this.value,
-    this.options = const [],
-  });
-
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    if (other is! ConfigProperty) {
-      return false;
-    }
-
-    return key == other.key &&
-        type == other.type &&
-        label == other.label &&
-        ValueUtils.equals(value, other.value) &&
-        ValueUtils.equals(options, other.options);
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        key,
-        type,
-        label,
-        value,
-        options,
-      );
-}
-
-abstract class ColumnConfig {
-  const ColumnConfig();
-
-  List<ConfigProperty> get properties;
-
-  ColumnConfig updateProperty(String key,dynamic value,);
-  String? validate(String value);
-  Map<String, dynamic> toSchemaValues();
-    @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-
-    if (other is! ColumnConfig) {
-      return false;
-    }
-
-    return runtimeType == other.runtimeType &&
-        ValueUtils.equals(properties, other.properties);
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        runtimeType,
-        Object.hashAll(properties),
-      );
-}
-
-class MetadataConfig extends ColumnConfig {
-  final MetadataMode mode;
-  final List<String> options;
-
-  const MetadataConfig({
-    required this.mode,
-    this.options = const [],
-  });
-
-
-  @override
-  String? validate(String value) {
-    if (mode == MetadataMode.singleSelect &&
-        !options.contains(value)) {
-      return 'Value must be one of the available options';
-    }
-
-    if (mode == MetadataMode.multiSelect &&
-      !options.contains(value)) {
-    }
-
-    return null;
-  }
-
-  @override
-  Map<String, dynamic> toSchemaValues() {
-    return {
-      'metadata_mode': mode.name,
-      'options': options.join('|'),
-    };
-  }
-
-
-  @override
-  List<ConfigProperty> get properties {
-    return [
-      ConfigProperty(
-        key: 'mode',
-        label: 'Input mode',
-        type: ConfigPropertyType.dropdown,
-        value: mode,
-        options: MetadataMode.values,
-      ),
-
-      if (mode != MetadataMode.freeText)
-        ConfigProperty(
-          key: 'options',
-          label: 'Options',
-          type: ConfigPropertyType.list,
-          value: options,
-        ),
-    ];
-  }
-
-  @override
-  ColumnConfig updateProperty(
-    String key,
-    dynamic value,
-  ) {
-    switch (key) {
-      case 'mode':
-        return MetadataConfig(
-          mode: value as MetadataMode,
-          options: value == MetadataMode.freeText
-              ? const []
-              : options,
-        );
-
-      case 'options':
-        return MetadataConfig(
-          mode: mode,
-          options: List<String>.from(value),
-        );
-
-      default:
-        throw ArgumentError('Unknown property: $key');
-    }
-  }
-}
+import 'column_type.dart';
 
 class LogColumn {
   final String id;
@@ -209,10 +12,9 @@ class LogColumn {
     required this.id,
     required this.name,
     required this.type,
-    this.required = false,
+    required this.required,
     this.config,
   });
-
 
   Map<String, dynamic> toSchemaValues() {
     return {
@@ -222,6 +24,22 @@ class LogColumn {
       'required': required,
       ...?config?.toSchemaValues(),
     };
+  }
+
+  LogColumn copyWith({
+    String? id,
+    String? name,
+    ColumnType? type,
+    bool? required,
+    ColumnConfig? config,
+  }) {
+    return LogColumn(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      required: required ?? this.required,
+      config: config ?? this.config,
+    );
   }
 
   @override
@@ -242,11 +60,13 @@ class LogColumn {
   }
 
   @override
-  int get hashCode => Object.hash(
-        id,
-        name,
-        type,
-        required,
-        config,
-      );
+  int get hashCode {
+    return Object.hash(
+      id,
+      name,
+      type,
+      required,
+      config,
+    );
+  }
 }
