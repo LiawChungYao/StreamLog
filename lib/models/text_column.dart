@@ -18,15 +18,15 @@ class TextColumn extends ColumnType {
   }
 
   @override
-  dynamic convert(dynamic value) {
-    return value?.toString() ?? '';
+  TextColumn fromSchemaValues(Map<String, dynamic> values) {
+    return const TextColumn();
   }
 
   @override
   Widget buildConfiguration({
     required BuildContext context,
     required LogColumn column,
-    required ValueChanged<LogColumn> onChanged,
+    required ValueChanged<ColumnType> onChanged,
   }) {
     return const SizedBox.shrink();
   }
@@ -39,6 +39,7 @@ class TextColumn extends ColumnType {
     required ValueChanged<dynamic> onChanged,
   }) {
     return TextFormField(
+      key: ValueKey(column.id),
       initialValue: value?.toString() ?? '',
       onChanged: onChanged,
       decoration: InputDecoration(

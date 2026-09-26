@@ -9,36 +9,32 @@ import 'metadata_column.dart';
 abstract class ColumnType {
   const ColumnType();
 
-  /// Value persisted in the spreadsheet schema.
   String get name;
-
-  /// Name displayed to the user.
   String get displayName;
 
-  /// Validate a value entered for this column.
-  ///
-  /// Returns an error message if invalid, otherwise null.
-  String? validate(dynamic value);
+  Map<String, dynamic> toSchemaValues(){
+    return {};
+  }
 
-  /// Convert a value into the format expected by the column.
-  dynamic convert(dynamic value);
+  ColumnType fromSchemaValues(
+    Map<String, dynamic> values,
+  );
 
-  /// Build the configuration UI for this column.
-  ///
-  /// If the column has no configuration, return SizedBox.shrink().
   Widget buildConfiguration({
     required BuildContext context,
     required LogColumn column,
-    required ValueChanged<LogColumn> onChanged,
+    required ValueChanged<ColumnType> onChanged,
   });
 
-  /// Build the input UI for adding/editing a record.
   Widget buildInput({
     required BuildContext context,
     required LogColumn column,
     required dynamic value,
     required ValueChanged<dynamic> onChanged,
   });
+
+  String? validate(dynamic value);
+
 
   @override
   bool operator ==(Object other) {
@@ -57,7 +53,9 @@ class ColumnRegistry {
     NumberColumn(),
   ];
 
-  static ColumnType fromName(String name) {
+  
+
+  static ColumnType? fromName(String name) {
     switch (name) {
       case 'text':
         return const TextColumn();
@@ -68,7 +66,7 @@ class ColumnRegistry {
       case 'number':
         return const NumberColumn();
       default:
-        throw ArgumentError('Unknown column type: $name');
+        return null;
     }
   }
 }

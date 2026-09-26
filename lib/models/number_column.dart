@@ -30,23 +30,15 @@ class NumberColumn extends ColumnType {
   }
 
   @override
-  dynamic convert(dynamic value) {
-    if (value == null || value.toString().isEmpty) {
-      return null;
-    }
-
-    if (value is num) {
-      return value;
-    }
-
-    return num.tryParse(value.toString());
+  NumberColumn fromSchemaValues(Map<String, dynamic> values) {
+    return const NumberColumn();
   }
 
   @override
   Widget buildConfiguration({
     required BuildContext context,
     required LogColumn column,
-    required ValueChanged<LogColumn> onChanged,
+    required ValueChanged<ColumnType> onChanged,
   }) {
     return const SizedBox.shrink();
   }

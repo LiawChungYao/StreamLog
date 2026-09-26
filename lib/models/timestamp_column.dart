@@ -29,7 +29,6 @@ class TimestampColumn extends ColumnType {
     return null;
   }
 
-  @override
   dynamic convert(dynamic value) {
     if (value == null) {
       return null;
@@ -43,10 +42,15 @@ class TimestampColumn extends ColumnType {
   }
 
   @override
+  TimestampColumn fromSchemaValues(Map<String, dynamic> values) {
+    return const TimestampColumn();
+  }
+
+  @override
   Widget buildConfiguration({
     required BuildContext context,
     required LogColumn column,
-    required ValueChanged<LogColumn> onChanged,
+    required ValueChanged<ColumnType> onChanged,
   }) {
     return const SizedBox.shrink();
   }
@@ -60,51 +64,66 @@ class TimestampColumn extends ColumnType {
   }) {
     final currentValue = convert(value) as DateTime?;
 
-    return InkWell(
-      onTap: () async {
-        final initial = currentValue ?? DateTime.now();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () async {
+            final initial = currentValue ?? DateTime.now();
 
-        final date = await showDatePicker(
-          context: context,
-          initialDate: initial,
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2100),
-        );
+            final date = await showDatePicker(
+              context: context,
+              initialDate: initial,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+            );
 
-        if (date == null || !context.mounted) {
-          return;
-        }
+            if (date == null || !context.mounted) {
+              return;
+            }
 
-        final time = await showTimePicker(
-          context: context,
-          initialTime: TimeOfDay.fromDateTime(initial),
-        );
+            final time = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.fromDateTime(initial),
+            );
 
-        if (time == null) {
-          return;
-        }
+            if (time == null) {
+              return;
+            }
 
-        onChanged(
-          DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
+            onChanged(
+              DateTime(
+                date.year,
+                date.month,
+                date.day,
+                time.hour,
+                time.minute,
+              ),
+            );
+          },
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: column.name,
+              border: const OutlineInputBorder(),
+            ),
+            child: Text(
+              currentValue == null
+                  ? 'Select date and time'
+                  : _format(currentValue),
+            ),
           ),
-        );
-      },
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: column.name,
-          border: const OutlineInputBorder(),
         ),
-        child: Text(
-          currentValue == null
-              ? 'Select date and time'
-              : _format(currentValue),
+
+        const SizedBox(height: 8),
+
+        OutlinedButton.icon(
+          onPressed: () {
+            onChanged(DateTime.now());
+          },
+          icon: const Icon(Icons.access_time),
+          label: const Text('Now'),
         ),
-      ),
+      ],
     );
   }
 

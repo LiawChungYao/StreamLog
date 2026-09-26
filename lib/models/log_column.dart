@@ -1,4 +1,3 @@
-import '../util/utils.dart';
 import 'column_type.dart';
 
 class LogColumn {
@@ -6,14 +5,12 @@ class LogColumn {
   final String name;
   final ColumnType type;
   final bool required;
-  final ColumnConfig? config;
 
   const LogColumn({
     required this.id,
     required this.name,
     required this.type,
     required this.required,
-    this.config,
   });
 
   Map<String, dynamic> toSchemaValues() {
@@ -22,7 +19,7 @@ class LogColumn {
       'name': name,
       'type': type.name,
       'required': required,
-      ...?config?.toSchemaValues(),
+      ...type.toSchemaValues(),
     };
   }
 
@@ -31,14 +28,12 @@ class LogColumn {
     String? name,
     ColumnType? type,
     bool? required,
-    ColumnConfig? config,
   }) {
     return LogColumn(
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
       required: required ?? this.required,
-      config: config ?? this.config,
     );
   }
 
@@ -55,8 +50,7 @@ class LogColumn {
     return id == other.id &&
         name == other.name &&
         type == other.type &&
-        required == other.required &&
-        config == other.config;
+        required == other.required;
   }
 
   @override
@@ -66,7 +60,6 @@ class LogColumn {
       name,
       type,
       required,
-      config,
     );
   }
 }

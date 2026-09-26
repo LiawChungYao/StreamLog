@@ -1,3 +1,4 @@
+import '../models/column_type.dart';
 import '../models/log_column.dart';
 
 class SchemaParser {
@@ -5,10 +6,6 @@ class SchemaParser {
     if (rows.isEmpty) {
       return [];
     }
-
-    // ------------------------------------------------------------
-    // First row = headers
-    // ------------------------------------------------------------
 
     final headers = (rows.first as List<dynamic>)
         .map((value) => value.toString().trim())
@@ -18,15 +15,11 @@ class SchemaParser {
       return headers.indexOf(name);
     }
 
-    // Find indexes
     final columnIdIndex = indexOf('column_id');
     final nameIndex = indexOf('name');
     final typeIndex = indexOf('type');
     final requiredIndex = indexOf('required');
-    final metadataModeIndex = indexOf('metadata_mode');
-    final optionsIndex = indexOf('options');
 
-    // Validate required headers
     if (columnIdIndex == -1 ||
         nameIndex == -1 ||
         typeIndex == -1) {
@@ -35,16 +28,14 @@ class SchemaParser {
       );
     }
 
-    // ------------------------------------------------------------
-    // Read column definitions
-    // ------------------------------------------------------------
-
     final columns = <LogColumn>[];
 
     for (final rawRow in rows.skip(1)) {
       final row = rawRow as List<dynamic>;
 
-      String getValue(int index) {
+      String getValue(String header) {
+        final index = indexOf(header);
+
         if (index == -1 || index >= row.length) {
           return '';
         }
@@ -52,95 +43,38 @@ class SchemaParser {
         return row[index].toString().trim();
       }
 
-      final columnId = getValue(columnIdIndex);
-      final name = getValue(nameIndex);
-      final typeString = getValue(typeIndex);
+      final columnId = getValue('column_id');
+      final name = getValue('name');
+      final typeName = getValue('type');
 
       // Ignore completely empty rows.
       if (columnId.isEmpty &&
           name.isEmpty &&
-          typeString.isEmpty) {
+          typeName.isEmpty) {
         continue;
       }
 
-      // Validate column ID
       if (columnId.isEmpty) {
         throw Exception(
           'Schema column is missing column_id',
         );
       }
 
-      // Validate column name
       if (name.isEmpty) {
         throw Exception(
           'Schema column "$columnId" is missing name',
         );
       }
 
-      // ----------------------------------------------------------
-      // Convert type string → ColumnType
-      // ----------------------------------------------------------
-
-      final type = switch (typeString) {
-        'name' => ColumnType.name,
-        'metadata' => ColumnType.metadata,
-        'timestamp' => ColumnType.timestamp,
-        'number' => ColumnType.number,
-        _ => throw Exception(
-            'Unknown column type "$typeString" '
-            'for column "$columnId"',
-          ),
-      };
-
-      // ----------------------------------------------------------
-      // Required
-      // ----------------------------------------------------------
-
-      final requiredString = getValue(requiredIndex);
+      final type = _parseColumnType(
+        typeName,
+        row,
+        headers,
+        columnId,
+      );
 
       final required =
-          requiredString.toLowerCase() == 'true';
-
-      // ----------------------------------------------------------
-      // Type-specific configuration
-      // ----------------------------------------------------------
-
-      ColumnConfig? config;
-
-      if (type == ColumnType.metadata) {
-        final metadataModeString =
-            getValue(metadataModeIndex);
-
-        final mode = switch (metadataModeString) {
-          'freeText' => MetadataMode.freeText,
-          'singleSelect' => MetadataMode.singleSelect,
-          'multiSelect' => MetadataMode.multiSelect,
-          '' => MetadataMode.freeText,
-          _ => throw Exception(
-              'Unknown metadata mode "$metadataModeString" '
-              'for column "$columnId"',
-            ),
-        };
-
-        final optionsString = getValue(optionsIndex);
-
-        final options = optionsString.isNotEmpty
-            ? optionsString
-                .split('|')
-                .map((option) => option.trim())
-                .where((option) => option.isNotEmpty)
-                .toList()
-            : <String>[];
-
-        config = MetadataConfig(
-          mode: mode,
-          options: options,
-        );
-      }
-
-      // ----------------------------------------------------------
-      // Create LogColumn
-      // ----------------------------------------------------------
+          getValue('required').toLowerCase() == 'true';
 
       columns.add(
         LogColumn(
@@ -148,11 +82,45 @@ class SchemaParser {
           name: name,
           type: type,
           required: required,
-          config: config,
         ),
       );
     }
 
     return columns;
+  }
+
+  static ColumnType _parseColumnType(
+    String typeName,
+    List<dynamic> row,
+    List<String> headers,
+    String columnId,
+  ) {
+    final type = ColumnRegistry.fromName(typeName);
+
+    if (type == null) {
+      throw Exception(
+        'Unknown column type "$typeName" '
+        'for column "$columnId"',
+      );
+    }
+
+    return type.fromSchemaValues(
+      _getSchemaValues(row, headers),
+    );
+  }
+
+  static Map<String, dynamic> _getSchemaValues(
+    List<dynamic> row,
+    List<String> headers,
+  ) {
+    final values = <String, dynamic>{};
+
+    for (int i = 0; i < headers.length; i++) {
+      if (i < row.length) {
+        values[headers[i]] = row[i];
+      }
+    }
+
+    return values;
   }
 }
