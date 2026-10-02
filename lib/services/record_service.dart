@@ -218,6 +218,11 @@ class RecordService {
   ) async {
     final accessToken = await SheetsService.instance.getAccessToken();
 
+    if (!await SheetsService.instance.sheetExists(spreadsheetId, recordsSheetName)){
+      await SheetsService.instance.createSheet(spreadsheetId, recordsSheetName);
+      return [];
+    }
+
     // ------------------------------------------------------------
     // Read _records
     // ------------------------------------------------------------
