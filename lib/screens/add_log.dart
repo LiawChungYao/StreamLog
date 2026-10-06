@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/log_column.dart';
 import '../models/log_schema.dart';
+import '../models/media_column.dart';
 import '../services/record_service.dart';
 import '../util/ui_helper.dart';
 import '../util/utils.dart';
@@ -251,7 +252,19 @@ class _AddLogPageState extends State<AddLogPage> {
 
   Future<void> saveLog() async {
     try {
+      for (final column in widget.schema.columns) {
+        if (column.type is! MediaColumn) continue;
+
+        final value = values[column.id];
+
+        if (value is List<PendingFile>) {
+          values[column.id] = await (column.type as MediaColumn)
+              .processValues(value);
+        }
+      }
+
       if (isEditing) {
+
         await RecordService.instance.updateRecord(
           widget.spreadsheetId,
           widget.schema,
