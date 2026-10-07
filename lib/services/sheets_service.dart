@@ -415,4 +415,65 @@ class SheetsService {
     return 'https://drive.google.com/file/d/$fileId/view';
   }
 
+  Future<String> getOrCreateMediaFolderId() async {
+    final accessToken = await getAccessToken();
+
+    // Search for an existing StreamLogMedia folder.
+    final query = Uri.encodeQueryComponent(
+      "name = 'StreamLogMedia' "
+      "and mimeType = 'application/vnd.google-apps.folder' "
+      "and trashed = false",
+    );
+
+    final searchResponse = await http.get(
+      Uri.parse(
+        'https://www.googleapis.com/drive/v3/files'
+        '?q=$query&fields=files(id,name)&spaces=drive',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (searchResponse.statusCode != 200) {
+      throw Exception(
+        'Failed to search for media folder: ${searchResponse.body}',
+      );
+    }
+
+    final searchData =
+        jsonDecode(searchResponse.body) as Map<String, dynamic>;
+
+    final folders = searchData['files'] as List<dynamic>;
+
+    if (folders.isNotEmpty) {
+      return folders.first['id'] as String;
+    }
+
+    // Create the folder if it doesn't exist.
+    final createResponse = await http.post(
+      Uri.parse('https://www.googleapis.com/drive/v3/files'),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'name': 'StreamLogMedia',
+        'mimeType': 'application/vnd.google-apps.folder',
+      }),
+    );
+
+    if (createResponse.statusCode != 200 &&
+        createResponse.statusCode != 201) {
+      throw Exception(
+        'Failed to create media folder: ${createResponse.body}',
+      );
+    }
+
+    final folderData =
+        jsonDecode(createResponse.body) as Map<String, dynamic>;
+
+    return folderData['id'] as String;
+  }
+
 }

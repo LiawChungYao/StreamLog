@@ -34,6 +34,14 @@ abstract class ColumnType {
     required ValueChanged<dynamic> onChanged,
   });
 
+  Widget buildDisplay({
+    required BuildContext context,
+    required LogColumn column,
+    required dynamic value,
+  }) {
+    return Text(value?.toString() ?? '');
+  }
+
   String? validate(dynamic value);
 
 
