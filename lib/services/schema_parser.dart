@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../models/column_type.dart';
 import '../models/log_column.dart';
 
@@ -18,7 +20,6 @@ class SchemaParser {
     final columnIdIndex = indexOf('column_id');
     final nameIndex = indexOf('name');
     final typeIndex = indexOf('type');
-    final requiredIndex = indexOf('required');
 
     if (columnIdIndex == -1 ||
         nameIndex == -1 ||
@@ -104,23 +105,40 @@ class SchemaParser {
       );
     }
 
-    return type.fromSchemaValues(
-      _getSchemaValues(row, headers),
-    );
+    final config = _getConfig(row, headers, columnId);
+
+    return type.fromSchemaValues(config);
   }
 
-  static Map<String, dynamic> _getSchemaValues(
+  static Map<String, dynamic> _getConfig(
     List<dynamic> row,
     List<String> headers,
+    String columnId,
   ) {
-    final values = <String, dynamic>{};
+    final configIndex = headers.indexOf('config');
 
-    for (int i = 0; i < headers.length; i++) {
-      if (i < row.length) {
-        values[headers[i]] = row[i];
-      }
+    if (configIndex == -1 ||
+        configIndex >= row.length ||
+        row[configIndex].toString().trim().isEmpty) {
+      return {};
     }
 
-    return values;
+    final rawConfig = row[configIndex].toString().trim();
+
+    try {
+      final decoded = jsonDecode(rawConfig);
+
+      if (decoded is! Map) {
+        throw const FormatException(
+          'Config must be a JSON object',
+        );
+      }
+
+      return Map<String, dynamic>.from(decoded);
+    } on FormatException catch (e) {
+      throw Exception(
+        'Invalid config for column "$columnId": ${e.message}',
+      );
+    }
   }
 }

@@ -1,5 +1,5 @@
 import 'column_type.dart';
-
+import 'dart:convert';
 class LogColumn {
   final String id;
   final String name;
@@ -19,7 +19,7 @@ class LogColumn {
       'name': name,
       'type': type.name,
       'required': required,
-      ...type.toSchemaValues(),
+      'config': jsonEncode(type.toSchemaValues()),
     };
   }
 

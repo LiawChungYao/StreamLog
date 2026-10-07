@@ -1,12 +1,15 @@
-import 'package:flutter/material.dart';
-import 'column_type.dart';
-import 'log_column.dart';
 import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
 import '/services/sheets_service.dart';
 import '/util/ui_helper.dart';
-import 'package:http/http.dart' as http;
-import 'dart:typed_data';
+import 'column_type.dart';
+import 'log_column.dart';
+
 class MediaColumn extends ColumnType {
   final MediaConfig config;
 
@@ -26,29 +29,28 @@ class MediaColumn extends ColumnType {
       return null;
     }
 
-    if (value is! List) {
-      return 'Invalid media value';
+    // Values from the input screen are List<PendingFile>.
+    // Values loaded from Sheets are stored as a String.
+    if (value is List || value is String) {
+      return null;
     }
 
-    return null;
-  }
-
-  @override
-  MediaColumn fromSchemaValues(Map<String, dynamic> values) {
-    final automaticDisplay =
-        values['media_automatic_display'] == null ||
-        values['media_automatic_display'].toString().toLowerCase() == 'true';
-
-    return MediaColumn(
-      config: MediaConfig(
-        automaticDisplay: automaticDisplay,
-      ),
-    );
+    return 'Invalid media value';
   }
 
   @override
   Map<String, dynamic> toSchemaValues() {
     return config.toSchemaValues();
+  }
+
+  @override
+  MediaColumn fromSchemaValues(Map<String, dynamic> values) {
+    return MediaColumn(
+      config: MediaConfig(
+        automaticDisplay:
+            values['automaticDisplay'] as bool? ?? true,
+      ),
+    );
   }
 
   @override
@@ -83,9 +85,7 @@ class MediaColumn extends ColumnType {
     required dynamic value,
     required ValueChanged<dynamic> onChanged,
   }) {
-    final files = value is List
-        ? List<PendingFile>.from(value)
-        : <PendingFile>[];
+    final files = _parseFiles(value);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,12 +99,26 @@ class MediaColumn extends ColumnType {
 
             return ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: buildPreview(file),
+              leading: GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      insetPadding: const EdgeInsets.all(16),
+                      child: InteractiveViewer(
+                        child: buildPreview(file),
+                      ),
+                    ),
+                  );
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: buildPreview(file),
+                  ),
                 ),
               ),
               title: Text(
@@ -143,6 +157,28 @@ class MediaColumn extends ColumnType {
     );
   }
 
+  List<PendingFile> _parseFiles(dynamic value) {
+    if (value is List<PendingFile>) {
+      return List<PendingFile>.from(value);
+    }
+
+    if (value is String) {
+      return value
+          .split(',')
+          .map((url) => url.trim())
+          .where((url) => url.isNotEmpty)
+          .map(
+            (url) => PendingFile.link(
+              name: url,
+              link: url,
+            ),
+          )
+          .toList();
+    }
+
+    return [];
+  }
+
   Future<PendingFile?> _showAddFileDialog(
     BuildContext context,
   ) async {
@@ -158,10 +194,11 @@ class MediaColumn extends ColumnType {
                 leading: const Icon(Icons.link),
                 title: const Text('Add link'),
                 onTap: () async {
-                  Navigator.pop(
-                    dialogContext,
-                    await _showAddLinkDialog(context),
-                  );
+                  final file = await _showAddLinkDialog(context);
+
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext, file);
+                  }
                 },
               ),
               ListTile(
@@ -196,7 +233,7 @@ class MediaColumn extends ColumnType {
       title: 'Add link',
       labelText: 'URL',
       hintText: 'https://example.com/file.jpg',
-    );  
+    );
 
     if (!context.mounted || text == null) {
       return null;
@@ -261,12 +298,17 @@ class MediaColumn extends ColumnType {
         final url = await SheetsService.instance.uploadFileToDrive(
           pendingFile.file!,
         );
+
         urls.add(url);
       }
     }
 
     return urls;
   }
+
+  // ---------------------------------------------------------------------------
+  // Input preview
+  // ---------------------------------------------------------------------------
 
   Widget buildPreview(PendingFile pendingFile) {
     if (!pendingFile.isLink && pendingFile.file != null) {
@@ -275,19 +317,47 @@ class MediaColumn extends ColumnType {
         width: 100,
         height: 100,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image),
+        errorBuilder: (_, __, ___) {
+          return const Icon(Icons.broken_image);
+        },
       );
     }
 
     if (pendingFile.isLink && pendingFile.link != null) {
-      final fileId = _extractDriveFileId(pendingFile.link!);
+      final url = pendingFile.link!;
+      final fileId = _extractDriveFileId(url);
 
       if (fileId == null) {
-        return const Icon(Icons.broken_image);
+        return Image.network(
+          url,
+          width: 100,
+          height: 100,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) {
+              return child;
+            }
+
+            return const SizedBox(
+              width: 100,
+              height: 100,
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          },
+          errorBuilder: (_, __, ___) {
+            return const SizedBox(
+              width: 100,
+              height: 100,
+              child: Icon(Icons.broken_image),
+            );
+          },
+        );
       }
 
       return FutureBuilder<Uint8List>(
-        future: _downloadThumbnail(fileId),
+        future: _downloadFile(fileId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const SizedBox(
@@ -317,36 +387,15 @@ class MediaColumn extends ColumnType {
       );
     }
 
-    return const Icon(Icons.insert_drive_file, size: 48);
-  }
-
-  Future<Uint8List> _downloadThumbnail(String fileId) async {
-    final accessToken =
-        await SheetsService.instance.getAccessToken();
-
-    final response = await http.get(
-      Uri.parse(
-        'https://www.googleapis.com/drive/v3/files/$fileId'
-        '?alt=media',
-      ),
-      headers: {
-        'Authorization': 'Bearer $accessToken',
-      },
+    return const Icon(
+      Icons.insert_drive_file,
+      size: 48,
     );
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to download image: ${response.statusCode}',
-      );
-    }
-
-    return response.bodyBytes;
   }
 
-  String? _extractDriveFileId(String url) {
-    final match = RegExp(r'/file/d/([^/]+)').firstMatch(url);
-    return match?.group(1);
-  }
+  // ---------------------------------------------------------------------------
+  // Record display
+  // ---------------------------------------------------------------------------
 
   @override
   Widget buildDisplay({
@@ -361,16 +410,23 @@ class MediaColumn extends ColumnType {
     }
 
     if (config.automaticDisplay) {
-      return _buildImages(urls);
+      return _buildImages(
+        context,
+        urls,
+      );
     }
 
-    return _buildLinksWithLoadButton(urls);
+    return _buildLinksWithLoadButton(
+      context,
+      urls,
+    );
   }
 
   List<String> _extractUrls(dynamic value) {
     if (value is List) {
       return value
           .whereType<String>()
+          .map((url) => url.trim())
           .where((url) => url.isNotEmpty)
           .toList();
     }
@@ -386,77 +442,186 @@ class MediaColumn extends ColumnType {
     return [];
   }
 
-  Widget _buildImages(List<String> urls) {
+  Widget _buildImages(
+    BuildContext context,
+    List<String> urls,
+  ) {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: urls.map(_buildImage).toList(),
+      children: urls.map(
+        (url) => _buildImage(
+          context,
+          url,
+        ),
+      ).toList(),
     );
   }
 
-  Widget _buildImage(String url) {
+  Widget _buildImage(
+    BuildContext context,
+    String url,
+  ) {
     final fileId = _extractDriveFileId(url);
 
-    if (fileId != null) {
-      return FutureBuilder<Uint8List>(
-        future: _downloadThumbnail(fileId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const SizedBox(
-              width: 80,
-              height: 80,
-              child: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
+    final image = fileId != null
+        ? _buildDriveImage(fileId)
+        : _buildNetworkImage(url);
 
-          if (snapshot.hasError || !snapshot.hasData) {
-            return const SizedBox(
-              width: 80,
-              height: 80,
-              child: Icon(Icons.broken_image),
-            );
-          }
+    return GestureDetector(
+      onTap: () {
+        _showFullImage(
+          context,
+          url,
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: image,
+      ),
+    );
+  }
 
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.memory(
-              snapshot.data!,
-              width: 80,
-              height: 80,
-              fit: BoxFit.cover,
+  Widget _buildDriveImage(String fileId) {
+    return FutureBuilder<Uint8List>(
+      future: _downloadFile(fileId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            width: 80,
+            height: 80,
+            child: Center(
+              child: CircularProgressIndicator(),
             ),
           );
-        },
-      );
-    }
+        }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.network(
-        url,
-        width: 80,
-        height: 80,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) {
+        if (snapshot.hasError || !snapshot.hasData) {
           return const SizedBox(
             width: 80,
             height: 80,
             child: Icon(Icons.broken_image),
           );
-        },
-      ),
+        }
+
+        return Image.memory(
+          snapshot.data!,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+        );
+      },
     );
   }
 
-  Widget _buildLinksWithLoadButton(List<String> urls) {
+  Widget _buildNetworkImage(String url) {
+    return Image.network(
+      url,
+      width: 80,
+      height: 80,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) {
+          return child;
+        }
+
+        return const SizedBox(
+          width: 80,
+          height: 80,
+          child: Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      },
+      errorBuilder: (_, __, ___) {
+        return const SizedBox(
+          width: 80,
+          height: 80,
+          child: Icon(Icons.broken_image),
+        );
+      },
+    );
+  }
+
+  Future<void> _showFullImage(
+    BuildContext context,
+    String url,
+  ) async {
+    final fileId = _extractDriveFileId(url);
+
+    showDialog(
+      context: context,
+      builder: (_) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(16),
+          child: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4,
+            child: fileId != null
+                ? _buildFullDriveImage(fileId)
+                : _buildFullNetworkImage(url),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFullDriveImage(String fileId) {
+    return FutureBuilder<Uint8List>(
+      future: _downloadFile(fileId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            width: 100,
+            height: 100,
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const Icon(
+            Icons.broken_image,
+            size: 64,
+          );
+        }
+
+        return Image.memory(
+          snapshot.data!,
+          fit: BoxFit.contain,
+        );
+      },
+    );
+  }
+
+  Widget _buildFullNetworkImage(String url) {
+    return Image.network(
+      url,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) {
+        return const Icon(
+          Icons.broken_image,
+          size: 64,
+        );
+      },
+    );
+  }
+
+  Widget _buildLinksWithLoadButton(
+    BuildContext context,
+    List<String> urls,
+  ) {
     var showImages = false;
 
     return StatefulBuilder(
       builder: (context, setState) {
         if (showImages) {
-          return _buildImages(urls);
+          return _buildImages(
+            context,
+            urls,
+          );
         }
 
         return Column(
@@ -475,9 +640,7 @@ class MediaColumn extends ColumnType {
                 ),
               ),
             ),
-
             const SizedBox(height: 4),
-
             OutlinedButton.icon(
               onPressed: () {
                 setState(() {
@@ -491,6 +654,41 @@ class MediaColumn extends ColumnType {
         );
       },
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Google Drive
+  // ---------------------------------------------------------------------------
+
+  Future<Uint8List> _downloadFile(String fileId) async {
+    final accessToken =
+        await SheetsService.instance.getAccessToken();
+
+    final response = await http.get(
+      Uri.parse(
+        'https://www.googleapis.com/drive/v3/files/$fileId'
+        '?alt=media',
+      ),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to download file: ${response.statusCode}',
+      );
+    }
+
+    return response.bodyBytes;
+  }
+
+  String? _extractDriveFileId(String url) {
+    final match = RegExp(
+      r'/file/d/([^/]+)',
+    ).firstMatch(url);
+
+    return match?.group(1);
   }
 }
 
@@ -508,12 +706,18 @@ class PendingFile {
   const PendingFile.file({
     required String name,
     required File file,
-  }) : this._(name: name, file: file);
+  }) : this._(
+          name: name,
+          file: file,
+        );
 
   const PendingFile.link({
     required String name,
     required String link,
-  }) : this._(name: name, link: link);
+  }) : this._(
+          name: name,
+          link: link,
+        );
 
   bool get isLink => link != null;
 
@@ -527,7 +731,6 @@ class PendingFile {
   }
 }
 
-
 class MediaConfig {
   final bool automaticDisplay;
 
@@ -537,7 +740,7 @@ class MediaConfig {
 
   Map<String, dynamic> toSchemaValues() {
     return {
-      'media_automatic_display': automaticDisplay.toString(),
+      'automaticDisplay': automaticDisplay,
     };
   }
 
@@ -545,7 +748,8 @@ class MediaConfig {
     bool? automaticDisplay,
   }) {
     return MediaConfig(
-      automaticDisplay: automaticDisplay ?? this.automaticDisplay,
+      automaticDisplay:
+          automaticDisplay ?? this.automaticDisplay,
     );
   }
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import '../models/log_schema.dart';
+import '../models/media_column.dart';
 import '../models/log_column.dart';
 import '../services/schema_parser.dart';
 import '../services/sheets_service.dart';
@@ -304,6 +305,25 @@ class RecordService {
     );
 
     return records;
+  }
+
+  List<PendingFile> _parseMediaValue(dynamic value) {
+    if (value == null || value.toString().trim().isEmpty) {
+      return [];
+    }
+
+    return value
+        .toString()
+        .split(',')
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .map(
+          (url) => PendingFile.link(
+            name: url,
+            link: url,
+          ),
+        )
+        .toList();
   }
 
   Future<void> addLog(
