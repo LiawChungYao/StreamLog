@@ -24,8 +24,7 @@ class SchemaService {
     'name',
     'type',
     'required',
-    'metadata_mode',
-    'options',
+    'config',
   ];
 
 

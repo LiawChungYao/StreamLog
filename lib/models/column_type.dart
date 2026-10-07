@@ -5,6 +5,7 @@ import 'text_column.dart';
 import 'number_column.dart';
 import 'timestamp_column.dart';
 import 'metadata_column.dart';
+import 'media_column.dart';
 
 abstract class ColumnType {
   const ColumnType();
@@ -33,6 +34,14 @@ abstract class ColumnType {
     required ValueChanged<dynamic> onChanged,
   });
 
+  Widget buildDisplay({
+    required BuildContext context,
+    required LogColumn column,
+    required dynamic value,
+  }) {
+    return Text(value?.toString() ?? '');
+  }
+
   String? validate(dynamic value);
 
 
@@ -51,6 +60,7 @@ class ColumnRegistry {
     MetadataColumn(),
     TimestampColumn(),
     NumberColumn(),
+    MediaColumn(),
   ];
 
   
@@ -65,6 +75,8 @@ class ColumnRegistry {
         return const TimestampColumn();
       case 'number':
         return const NumberColumn();
+      case 'media':
+        return const MediaColumn();
       default:
         return null;
     }

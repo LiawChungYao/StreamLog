@@ -58,7 +58,7 @@ class MetadataColumn extends ColumnType {
 
   @override
   MetadataColumn fromSchemaValues(Map<String, dynamic> values) {
-    final modeString = values['metadata_mode']?.toString() ?? '';
+    final modeString = values['mode']?.toString() ?? '';
 
     final mode = switch (modeString) {
       'freeText' => MetadataMode.freeText,
@@ -70,16 +70,9 @@ class MetadataColumn extends ColumnType {
         ),
     };
 
-    final optionsString =
-        values['options']?.toString().trim() ?? '';
-
-    final options = optionsString.isEmpty
-        ? <String>[]
-        : optionsString
-            .split('|')
-            .map((option) => option.trim())
-            .where((option) => option.isNotEmpty)
-            .toList();
+    final options = values['options'] is List
+        ? List<String>.from(values['options'])
+        : <String>[];
 
     return MetadataColumn(
       config: MetadataConfig(
@@ -365,12 +358,10 @@ class MetadataConfig {
 
   Map<String, dynamic> toSchemaValues() {
     return {
-      'metadata_mode': mode.name,
-      'options': options.join('|'),
+      'mode': mode.name,
+      'options': options,
     };
   }
-
-  
 
   MetadataConfig copyWith({
     MetadataMode? mode,

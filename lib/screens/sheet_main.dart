@@ -891,9 +891,10 @@ class _SheetMainScreenState extends State<SheetMainScreen> {
                           ),
 
                           Expanded(
-                            child: Text(
-                              value?.toString() ??
-                                  '',
+                            child: column.type.buildDisplay(
+                              context: context,
+                              column: column,
+                              value: value,
                             ),
                           ),
                         ],
