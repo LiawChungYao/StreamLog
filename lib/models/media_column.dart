@@ -311,12 +311,11 @@ class MediaColumn extends ColumnType {
   // ---------------------------------------------------------------------------
 
   Widget buildPreview(PendingFile pendingFile) {
+
     if (!pendingFile.isLink && pendingFile.file != null) {
       return Image.file(
         pendingFile.file!,
-        width: 100,
-        height: 100,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         errorBuilder: (_, __, ___) {
           return const Icon(Icons.broken_image);
         },
@@ -330,9 +329,7 @@ class MediaColumn extends ColumnType {
       if (fileId == null) {
         return Image.network(
           url,
-          width: 100,
-          height: 100,
-          fit: BoxFit.cover,
+        fit: BoxFit.contain,
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) {
               return child;
@@ -379,9 +376,7 @@ class MediaColumn extends ColumnType {
 
           return Image.memory(
             snapshot.data!,
-            width: 100,
-            height: 100,
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
           );
         },
       );
