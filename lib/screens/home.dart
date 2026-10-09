@@ -205,8 +205,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             sheet["id"],
                           ),
 
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => SheetMainScreen(
@@ -214,6 +214,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             );
+
+                            // Reload spreadsheets when returning to HomeScreen
+                            if (!mounted) return;
+                            
+                            final loaded = await AppService.instance.loadSpreadsheets();
+                            setState(() {
+                              spreadsheets = loaded;
+                            });
                           },
                         );
 

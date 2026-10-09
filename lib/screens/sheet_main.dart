@@ -3,6 +3,7 @@ import 'package:sheets_manager/services/spreadsheet_storage.dart';
 
 import '../services/sheets_service.dart';
 import '../services/schema_service.dart';
+import '../services/app_service.dart';
 import '../services/record_service.dart';
 import '../screens/configure_columns.dart';
 import '../screens/add_log.dart';
@@ -119,7 +120,17 @@ class _SheetMainScreenState extends State<SheetMainScreen> {
           widget.spreadsheetId,
         );
 
+        await AppService.instance.refreshSpreadsheets();
+
         if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Spreadsheet has been trashed',
+            ),
+          ),
+        );
 
         Navigator.pop(context);
         return;
