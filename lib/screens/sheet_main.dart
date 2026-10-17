@@ -6,6 +6,7 @@ import '../services/schema_service.dart';
 import '../services/app_service.dart';
 import '../services/record_service.dart';
 import '../screens/configure_columns.dart';
+import '../screens/sheet_overview.dart';
 import '../screens/add_log.dart';
 import '../models/log_schema.dart';
 import '../models/log_column.dart';
@@ -557,24 +558,27 @@ class _SheetMainScreenState extends State<SheetMainScreen> {
                 // ==================================================
                 // SPREADSHEET SETTINGS
                 // ==================================================
-
                 SizedBox(
                   width: double.infinity,
-
                   child: ElevatedButton(
                     onPressed: savingSchema
                         ? null
                         : () {
-                            // Spreadsheet Settings
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SheetOverviewScreen(
+                                  spreadsheetId: widget.spreadsheetId,
+                                ),
+                              ),
+                            );
                           },
-
-                    child: const Text(
-                      'Spreadsheet Settings',
-                    ),
+                    child: const Text('Spreadsheet Settings'),
                   ),
                 ),
 
                 const SizedBox(height: 20),
+
 
                 // ==================================================
                 // RECORDS HEADER

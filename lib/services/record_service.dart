@@ -5,9 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/log_schema.dart';
 import '../models/media_column.dart';
 import '../models/log_column.dart';
-import '../services/schema_parser.dart';
 import '../services/sheets_service.dart';
-import '../services/google_auth.dart';
 class RecordService {
 
   RecordService._();

@@ -137,7 +137,7 @@ class _TextInputDialogState extends State<_TextInputDialog> {
             final value = controller.text;
             Navigator.pop(context, value);
           },
-          child: const Text('Add'),
+          child: const Text('Confirm'),
         ),
       ],
     );
