@@ -32,6 +32,8 @@ Supported column types include:
 | Metadata | Configure additional values, including free-text and selection-based inputs. |
 | Media | Attach files or URLs to log entries. |
 
+![Column types](docs/column_types.png)
+
 Column configuration supports options such as required fields and type-specific settings. Metadata columns can be configured for free-text, single-select, or multi-select input, with selectable options where applicable.
 
 ### Media Support
@@ -41,11 +43,16 @@ StreamLog's Media column supports attaching files and linking to existing media.
 - **File uploads** — Select files from your device and upload them to Google Drive when the log entry is confirmed.
 - **External links** — Attach existing HTTP or HTTPS URLs.
 
+![Media stored as links and files](docs/links_and_files.png)
+
 Features of media
 - **Image previews** — Display image previews in the app and open larger previews for viewing.
 - **Multiple attachments** — Associate multiple files or links with a log entry.
 - **Persistent references** — Store media URLs in Google Sheets so they can be retrieved when records are loaded again.
-- **Configurable display** — Control whether images are displayed automatically or whether links must be loaded manually.
+- **Configurable display** — Control whether images are displayed automatically or whether links must be loaded manually. This can save a lot of bandwidth if there are a lot of pictures uploaded
+
+![Media Option](docs/image_display_option.png)
+![Images displayed as links](docs/link_display.png)
 
 Google Sheets stores references to media files rather than the underlying binary file contents. The original files remain in Google Drive or at their external URLs.
 
@@ -56,6 +63,8 @@ Google Sheets stores references to media files rather than the underlying binary
 - Validate required fields and column-specific input.
 - Load records and column definitions from Google Sheets.
 - Keep spreadsheet data and the app's logging interface synchronized.
+
+![Records in sheets appear in app](docs/record_equality.png)
 
 ## How It Works
 
@@ -78,7 +87,7 @@ StreamLog connects Flutter directly to Google's APIs without requiring a separat
 │    Google APIs       │
 ├──────────────────────┤
 │ Google Sheets API    │──► Schemas & Records
-│ Google Drive API     │──► Uploaded Media
+│ Google Drive API     │──► Uploaded Media and Spreadsheet
 └──────────────────────┘
 ```
 
