@@ -3,8 +3,9 @@
 A customizable logging app built with Flutter that uses Google Sheets as its data store and Google Drive to manage media files. Create spreadsheets, configure your own columns, and keep track of information through a flexible logging interface.
 
 ## Demo
-
-![StreamLog home screen](docs/main_demo.mp4)
+<video src="docs/main_demo.mp4" controls width="600">
+  Your browser does not support the video tag.
+</video>
 
 
 ## Features
