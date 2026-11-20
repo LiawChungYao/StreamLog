@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
  
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -45,3 +45,13 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Publish APK as GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: StreamLog Latest
+          files: build/app/outputs/flutter-apk/app-release.apk
+          make_latest: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
