@@ -1,12 +1,14 @@
+
 name: Build StreamLog APK
 
 on:
   push:
     branches:
       - main
-      - github-actions-publish
+      - test
+
   workflow_dispatch:
- 
+
 permissions:
   contents: write
 
@@ -16,15 +18,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Set up Java
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      # Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -32,20 +37,26 @@ jobs:
           flutter-version: '3.16.9'
           cache: true
 
+      # Get Flutter dependencies
       - name: Get dependencies
         run: flutter pub get
 
+      # Build release APK
       - name: Build APK
         run: flutter build apk --release
 
+      # Upload APK as GitHub Actions artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: StreamLog-APK
+          name: StreamLog-APK-${{ github.ref_name }}
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
+
+      # Publish APK as GitHub Release (main only)
       - name: Publish APK as GitHub Release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
